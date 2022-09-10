@@ -1,0 +1,26 @@
+version: "3.4"
+services:
+  backend:
+    image: node:12-alpine
+    command: sh -c "npm install && npm run dev"
+
+    ports:
+      - 8080:8080
+    working_dir: /app
+
+    environment:
+      mysql_host: mysql
+      mysql_user: root
+      mysql_password: password5
+      mysql_db: db
+
+  mysql:
+    image: mysql:5.7
+    volumes:
+      - todo-mysql-data:/var/lib/mysql
+    environment:
+      mysql_root_password: password5
+      mysql_database: blog
+
+volumes:
+  todo-mysql-data:

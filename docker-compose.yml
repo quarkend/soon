@@ -1,0 +1,233 @@
+# version: '3.8'
+
+# # Common variables used for MySQL connection
+# # Get the values from .env file, automatically loaded by Docker
+# x-common-variables:
+#   &common-variables
+#   MYSQL_DATABASE: $MYSQL_DATABASE
+
+#   MYSQL_PASSWORD: $MYSQL_PASSWORD
+
+# services:
+#   # MySQL Database Service
+#   db:
+#     image: mysql
+#     restart: always
+#     cap_add:
+#       - SYS_NICE
+#     volumes:
+#       # Data persistence volume that allows to persist the data between container restarts
+#       - mysql_data:/var/lib/mysql
+#       # Initial setup volume that allows us to do initial DB setup from ./api-server/db-setup.sql
+#       - ./backend/Groupomanaia.sql:/docker-entrypoint-initdb.d/Groupomania.sql
+#     ports:
+#       # Expose 3306 from container as 9906 externally
+#       - "9906:3306"
+#     environment:
+#       # Include the common variables
+#       <<: *common-variables
+#       MYSQL_ROOT_PASSWORD: $MYSQL_ROOT_PASSWORD
+#       MYSQL_HOST: $MYSQL_HOST
+
+#   nginx:
+#     # Starts services in dependency order
+#     depends_on:
+#       - backend
+#       - frontend
+#     restart: always
+#     build:
+#       dockerfile: Dockerfile
+#       context: ./nginx
+#     ports:
+#       # Expose 80 from container as 8008 externally
+#       - "8008:80"
+
+#   backend:
+#     build:
+#       context: ./backend
+#       target: dev
+#     depends_on:
+#       - db
+#     volumes:
+#       - ./backend:/src
+#       - /src/node_modules
+#     command: npm run start:dev
+#     ports:
+#       - $API_PORT:$API_PORT
+#     environment:
+#       <<: *common-variables
+#       PORT: $API_PORT
+#       NODE_ENV: development
+
+#   frontend:
+#     stdin_open: true
+#     # Fix for hot reload for React apps inside of containers
+#     environment:
+#       - CHOKIDAR_USEPOLLING=true
+#     build:
+#       context: ./frontend
+#     volumes:
+#       - ./frontend:/src
+#       - /src/node_modules
+#     ports:
+#       - $CLIENT_PORT:$CLIENT_PORT
+
+#   # An admin interface for MySQL DB
+#   adminer:
+#     image: adminer:latest
+#     restart: unless-stopped
+#     ports:
+#       - 8080:8080
+#     depends_on:
+#       - db
+#     environment:
+#       ADMINER_DEFAULT_SERVER: db
+
+# volumes:
+#   mysql_data:
+#     # Current latest version of Docker Compose
+
+# version: '3.8'
+
+# x-common-variables:
+#   &common-variables
+#   MYSQL_DATABASE: blog
+#   MYSQL_USER: root
+#   MYSQL_PASSWORD: password
+
+# services:
+#   db:
+#     image: mysql
+#     restart: always
+#     cap_add:
+#       - SYS_NICE
+#     volumes:
+#       - mysql_data:/var/lib/mysql
+#       - ./api-server/db-setup.sql:/docker-entrypoint-initdb.d/setup.sql
+#     ports:
+#       - "9906:3306"
+#     environment:
+#       <<: *common-variables
+#       MYSQL_ROOT_PASSWORD: password5
+#       MYSQL_HOST: localhost
+
+#   nginx:
+#     depends_on:
+#       - api
+#       - ui
+#     restart: always
+#     build:
+#       dockerfile: Dockerfile
+#       context: ./nginx
+#     ports:
+#       - "8008:80"
+
+#   api:
+#     build:
+#       context: ./api-server
+#       target: dev
+#     depends_on:
+#       - db
+#     volumes:
+#       - ./api-server:/src
+#       - /src/node_modules
+#     command: npm run start:dev
+#     ports:
+#       - $API_PORT:5050
+#     environment:
+#       <<: *common-variables
+#       PORT: $API_PORT
+#       NODE_ENV: development
+
+#   ui:
+#     stdin_open: true
+#     environment:
+#       - CHOKIDAR_USEPOLLING=true
+#     build:
+#       context: ./blog-ui
+#     volumes:
+#       - ./blog-ui:/src
+#       - /src/node_modules
+#     ports:
+#       - $CLIENT_PORT:3000
+
+#   adminer:
+#     image: adminer:latest
+#     restart: unless-stopped
+#     ports:
+#       - 8080:8080
+#     depends_on:
+#       - db
+#     environment:
+#       ADMINER_DEFAULT_SERVER: db
+
+# volumes:
+#   mysql_data:
+services:
+  backend:
+    build:
+      args:
+        - NODE_ENV=development
+      context: backend
+      target: development
+    command: npm run start-watch
+    environment:
+      - DATABASE_DB=example
+      - DATABASE_USER=root
+      - DATABASE_PASSWORD=/run/secrets/db-password
+      - DATABASE_HOST=db
+      - NODE_ENV=development
+    ports:
+      - 80:80
+      - 9229:9229
+      - 9230:9230
+    secrets:
+      - db-password
+    volumes:
+      - ./backend/src:/code/src:ro
+      - ./backend/package.json:/code/package.json
+      - ./backend/package-lock.json:/code/package-lock.json
+      - back-notused:/opt/app/node_modules
+    networks:
+      - public
+      - private
+    depends_on:
+      - db
+  db:
+    # We use a mariadb image which supports both amd64 & arm64 architecture
+    # image: mariadb:10.6.4-focal
+    # If you really want to use MySQL, uncomment the following line
+    image: mysql:8.0.27
+    command: '--default-authentication-plugin=mysql_native_password'
+    restart: always
+    secrets:
+      - db-password
+    volumes:
+      - db-data:/var/lib/mysql
+    networks:
+      - private
+    environment:
+      - MYSQL_DATABASE=example
+      - MYSQL_ROOT_PASSWORD_FILE=/run/secrets/db-password
+  frontend:
+    build:
+      context: frontend
+      target: development
+    ports:
+      - 3000:3000
+    volumes:
+      - ./frontend/src:/code/src
+      - /code/node_modules
+    networks:
+      - public
+    depends_on:
+      - backend
+networks:
+  public:
+  private:
+volumes:
+  back-notused:
+  db-data:
+secrets:
+  db-password:
+    file: db/password.txt
